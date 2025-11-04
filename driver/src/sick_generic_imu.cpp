@@ -556,6 +556,7 @@ namespace sick_scan_xd
   {
     int exitCode = ExitSuccess;
 
+    return exitCode;
     SickScanImuValue imuValue;
     ros_sensor_msgs::Imu imuMsg_;
     static rosTime lastTimeStamp;
@@ -565,6 +566,9 @@ namespace sick_scan_xd
     static double lastYaw = 0.0;
 
     static bool firstTime = true;
+    #if __ROS_VERSION == 1
+      ROS_INFO("Imu datagram received, length %d bytes", actual_length);
+    #endif
     /*
     static int cnt = 0;
     static u_int32_t timeStampSecBuffer[1000];
@@ -793,41 +797,54 @@ namespace sick_scan_xd
     }
     else
     {
-      imuMsg_.angular_velocity_covariance[0] = 0;
+        imuMsg_.angular_velocity_covariance[0] = 0.02;
       imuMsg_.angular_velocity_covariance[1] = 0;
       imuMsg_.angular_velocity_covariance[2] = 0;
       imuMsg_.angular_velocity_covariance[3] = 0;
-      imuMsg_.angular_velocity_covariance[4] = 0;
+      imuMsg_.angular_velocity_covariance[4] = 0.02;
       imuMsg_.angular_velocity_covariance[5] = 0;
       imuMsg_.angular_velocity_covariance[6] = 0;
       imuMsg_.angular_velocity_covariance[7] = 0;
-      imuMsg_.angular_velocity_covariance[8] = 0;
+      imuMsg_.angular_velocity_covariance[8] = 0.02;
 
-      imuMsg_.linear_acceleration_covariance[0] = 0;
+      imuMsg_.linear_acceleration_covariance[0] = 0.04;
       imuMsg_.linear_acceleration_covariance[1] = 0;
       imuMsg_.linear_acceleration_covariance[2] = 0;
       imuMsg_.linear_acceleration_covariance[3] = 0;
-      imuMsg_.linear_acceleration_covariance[4] = 0;
+      imuMsg_.linear_acceleration_covariance[4] = 0.04;
       imuMsg_.linear_acceleration_covariance[5] = 0;
       imuMsg_.linear_acceleration_covariance[6] = 0;
       imuMsg_.linear_acceleration_covariance[7] = 0;
-      imuMsg_.linear_acceleration_covariance[8] = 0;
+      imuMsg_.linear_acceleration_covariance[8] = 0.04;
 
-      imuMsg_.orientation_covariance[0] = 0;
+      imuMsg_.orientation_covariance[0] = 0.0025;
       imuMsg_.orientation_covariance[1] = 0;
       imuMsg_.orientation_covariance[2] = 0;
       imuMsg_.orientation_covariance[3] = 0;
-      imuMsg_.orientation_covariance[4] = 0;
+      imuMsg_.orientation_covariance[4] = 0.0025;
       imuMsg_.orientation_covariance[5] = 0;
       imuMsg_.orientation_covariance[6] = 0;
       imuMsg_.orientation_covariance[7] = 0;
-      imuMsg_.orientation_covariance[8] = 0;
+      imuMsg_.orientation_covariance[8] = 0.0025;
 
     }
+    static rosTime lastPublishedTimeStamp = rosTime(0, 0);
+    // Filtrar mensajes con timestamp menor o igual al último publicado
     if (true == bRet)
     {
+      if (lastPublishedTimeStamp.sec < timeStamp.sec ||
+        (lastPublishedTimeStamp.sec == timeStamp.sec && lastPublishedTimeStamp.nsec < timeStamp.nsec))
+      {
         notifyImuListener(nh, &imuMsg_);
         rosPublish(this->commonPtr->imuScan_pub_, imuMsg_);
+        ROS_INFO_STREAM_THROTTLE(5, "IMU message published with timestamp: " << timeStamp.sec << "." << timeStamp.nsec);
+        lastPublishedTimeStamp = timeStamp;
+      }
+      else
+      {
+        // Mensaje descartado por timestamp en el pasado
+        ROS_WARN_STREAM("IMU message discarded: timestamp " << timeStamp.sec << "." << timeStamp.nsec << " <= last published " << lastPublishedTimeStamp.sec << "." << lastPublishedTimeStamp.nsec);
+      }
     }
     return (exitCode);
 
